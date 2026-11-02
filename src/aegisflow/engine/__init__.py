@@ -1,5 +1,6 @@
 """Engine module exports for AegisFlow."""
 
+from aegisflow.engine.dlq import DeadLetterManager
 from aegisflow.engine.lease import HeartbeatMonitor, LeaseReaper
 from aegisflow.engine.orchestrator import (
     WorkflowOrchestrator,
@@ -11,6 +12,8 @@ from aegisflow.engine.replay import (
     get_runnable_tasks_after_recovery,
     replay_workflow,
 )
+from aegisflow.engine.retry import RetryScheduler
+from aegisflow.engine.saga import SagaCoordinator
 from aegisflow.engine.state_machine import (
     WorkflowExecutionState,
     initial_state,
@@ -18,8 +21,11 @@ from aegisflow.engine.state_machine import (
 )
 
 __all__ = [
+    "DeadLetterManager",
     "HeartbeatMonitor",
     "LeaseReaper",
+    "RetryScheduler",
+    "SagaCoordinator",
     "WorkflowExecutionState",
     "WorkflowOrchestrator",
     "compute_workflow_output",
