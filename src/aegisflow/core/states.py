@@ -1,9 +1,9 @@
 """Workflow and Task lifecycle states for AegisFlow."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class WorkflowState(str, Enum):
+class WorkflowState(StrEnum):
     """Lifecycle states of an AegisFlow workflow."""
 
     PENDING = "PENDING"
@@ -25,7 +25,7 @@ class WorkflowState(str, Enum):
         )
 
 
-class TaskState(str, Enum):
+class TaskState(StrEnum):
     """Lifecycle states of an individual task node in a DAG."""
 
     PENDING = "PENDING"
