@@ -127,12 +127,12 @@
 ### Phase 6: Observability, Rich CLI & Web Dashboard
 *Goal: Provide developer tooling, metrics, and real-time visualization.*
 
-- [ ] **Task 6.1: OpenTelemetry Instrumentation**
+- [x] **Task 6.1: OpenTelemetry Instrumentation**
   - Implement `src/aegisflow/observability/telemetry.py`.
   - Instrument workflows and tasks with OpenTelemetry spans and trace context propagation across worker processes.
   - *Acceptance:* Spans output to standard OTel collector or local console tracer.
 
-- [ ] **Task 6.2: Terminal CLI (`aegisflow`)**
+- [x] **Task 6.2: Terminal CLI (`aegisflow`)**
   - Implement Typer CLI (`src/aegisflow/cli/main.py`) with commands:
     - `aegisflow run <workflow_file>`
     - `aegisflow status <workflow_id>`
@@ -140,7 +140,7 @@
     - `aegisflow dlq list` / `aegisflow dlq retry <workflow_id>`
   - *Acceptance:* Live terminal UI renders DAG tree and event ticker seamlessly.
 
-- [ ] **Task 6.3: FastAPI & HTMX Real-Time Web Dashboard**
+- [x] **Task 6.3: FastAPI & HTMX Real-Time Web Dashboard**
   - Implement `src/aegisflow/dashboard/app.py`.
   - Server-Sent Events (SSE) route streaming live event store changes.
   - HTMX views for workflow list, interactive DAG visualizer, and worker health fleet.
@@ -151,23 +151,24 @@
 ### Phase 7: Verification, Benchmarking & Packaging
 *Goal: Harden the codebase with chaos tests, performance benchmarks, and publishable distribution.*
 
-- [ ] **Task 7.1: Property-Based Testing with Hypothesis**
+- [x] **Task 7.1: Property-Based Testing with Hypothesis**
   - Write property tests generating random DAGs (up to 50 nodes with arbitrary dependencies).
   - Verify that Kahn's algorithm never deadlocks and topological order is strictly respected.
   - *Acceptance:* 1,000 generated DAG test iterations pass without assertion errors.
 
-- [ ] **Task 7.2: Chaos Testing Suite (SIGKILL Injection)**
+- [x] **Task 7.2: Chaos Testing Suite (SIGKILL Injection)**
   - Spawn workers running real multi-step workflows.
   - Script randomly fires `kill -9` at worker PIDs mid-task.
   - Verify engine detects lease expiration, recovers state, and completes all workflows with correct output.
   - *Acceptance:* 100% of workflows achieve consistent final state despite crash injections.
 
-- [ ] **Task 7.3: Performance Benchmarking**
+- [x] **Task 7.3: Performance Benchmarking**
   - Benchmark dispatch latency (<10ms per task hop).
   - Benchmark SQLite WAL write throughput (>2,000 events/sec on standard SSD).
   - Generate automated benchmark reports.
 
-- [ ] **Task 7.4: Packaging & Documentation**
+- [x] **Task 7.4: Packaging & Documentation**
   - Build comprehensive `README.md` with architecture diagrams and quickstart examples.
   - Setup MkDocs documentation site.
   - Publish package build setup via `pyproject.toml` for PyPI distribution.
+
