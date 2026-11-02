@@ -20,8 +20,13 @@ from aegisflow.core.states import TaskState, WorkflowState
 from aegisflow.dsl.graph import DAG, DAGBuilder
 from aegisflow.dsl.task import TaskWrapper, task
 from aegisflow.dsl.workflow import Workflow, workflow
+from aegisflow.engine.lease import HeartbeatMonitor, LeaseReaper
 from aegisflow.storage.base import EventStoreInterface, LeaseInfo, LeaseManagerInterface
 from aegisflow.storage.sqlite import SQLiteStorage
+from aegisflow.workers.async_runner import AsyncRunner
+from aegisflow.workers.base_runner import BaseRunner, TaskExecutionResult
+from aegisflow.workers.daemon import WorkerSupervisorDaemon
+from aegisflow.workers.process_runner import ProcessRunner
 
 __version__ = "0.1.0"
 
@@ -44,6 +49,14 @@ __all__ = [
     "LeaseManagerInterface",
     "LeaseInfo",
     "SQLiteStorage",
+    # Engine & Workers
+    "HeartbeatMonitor",
+    "LeaseReaper",
+    "BaseRunner",
+    "AsyncRunner",
+    "ProcessRunner",
+    "TaskExecutionResult",
+    "WorkerSupervisorDaemon",
     # Domain Exceptions
     "AegisFlowError",
     "WorkflowError",

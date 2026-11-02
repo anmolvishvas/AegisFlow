@@ -4,8 +4,8 @@
 ---
 
 ### 1. Current Project Status
-- **Current Phase:** Phase 2 Complete (Storage Layer & SQLite WAL Event Store)
-- **Active Branch:** `feat/phase-2-storage-wal`
+- **Current Phase:** Phase 3 Complete (Worker Pool, Distributed Leases & Heartbeat System)
+- **Active Branch:** `feat/phase-3-worker-pool`
 - **Active Workspace Directory:** `C:\Users\DELL\Desktop\AegisFlow\`
 - **GitHub Repository:** [github.com/anmolvishvas/AegisFlow](https://github.com/anmolvishvas/AegisFlow)
 
@@ -34,24 +34,26 @@
 - [x] **Unit Testing:** `test_events.py`, `test_graph.py`, `test_dsl.py`.
 
 #### Phase 2: Storage Layer & SQLite WAL Event Store
-- [x] **Storage Abstraction Interfaces (`storage/base.py`):**
-  - `EventStoreInterface`: `create_workflow`, `update_workflow_status`, `get_workflow_record`, `append_event`, `get_events`, `get_active_workflows`.
-  - `LeaseManagerInterface`: `acquire_lease`, `renew_lease`, `release_lease`, `reap_expired_leases`.
-  - `LeaseInfo` dataclass tracking task leases, workers, and fencing tokens.
-- [x] **SQLite WAL Storage Engine (`storage/sqlite.py`):**
-  - Embedded SQLite running in `PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;` with transaction locks and busy timeouts.
-  - Relational tables: `workflows`, append-only `events` with indexed sequence ordering, and distributed `leases`.
-  - Automatic event deserialization to exact Pydantic event classes.
-- [x] **Distributed Leases & Fencing Token Persistence:**
-  - Monotonic fencing token increments on lease takeovers.
-  - Rejection of expired or conflicting worker lease renewals via `ConcurrencyConflictError`.
-- [x] **Integration Testing (`tests/integration/test_sqlite_store.py`):**
-  - WAL pragma verification and table initialization.
-  - Workflow status transitions and duplicate prevention.
-  - Event appending and chronological roundtrip restoration.
-  - Active workflow filtering for recovery.
-  - Exclusive leasing, fencing token increments, renewal, and reaping.
-  - Concurrent async writers test under high write pressure.
+- [x] **Storage Abstraction Interfaces (`storage/base.py`):** `EventStoreInterface`, `LeaseManagerInterface`, `LeaseInfo`.
+- [x] **SQLite WAL Storage Engine (`storage/sqlite.py`):** Fully async SQLite engine (`aiosqlite`), WAL pragmas, relational tables (`workflows`, `events`, `leases`).
+- [x] **Distributed Leases & Fencing Token Persistence:** Monotonic fencing token increments and concurrency conflict detection.
+- [x] **Integration Testing (`test_sqlite_store.py`):** Roundtrip event sourcing, lifecycle transitions, lease conflict rejection, and concurrent async appends.
+
+#### Phase 3: Worker Pool, Distributed Leases & Heartbeat System
+- [x] **Heartbeat Monitor & Lease Reaper (`engine/lease.py`):**
+  - `HeartbeatMonitor`: Asynchronous background lease renewal at `ttl / 3` intervals; triggers task cancellation callback if lease is lost.
+  - `LeaseReaper`: Periodic cleaner that detects and purges expired leases across the fleet.
+- [x] **Async & Process Execution Runners (`workers/base_runner.py`, `async_runner.py`, `process_runner.py`):**
+  - `BaseRunner` & `TaskExecutionResult` outcome contracts.
+  - `AsyncRunner`: Direct asyncio coroutine execution with timeout enforcement.
+  - `ProcessRunner`: Offloads synchronous / CPU-heavy functions to thread/process executor pools without blocking the main event loop.
+- [x] **Worker Supervisor Daemon (`workers/daemon.py`):**
+  - Semaphore-guarded concurrency controls (`max_concurrency`).
+  - Automated leasing, `TaskStarted`/`TaskCompleted`/`TaskFailed` event recording.
+  - Cross-platform graceful shutdown trapping `SIGINT`/`SIGTERM` with in-flight grace periods.
+- [x] **Testing Suite:**
+  - `tests/unit/test_workers.py`: Unit tests for `AsyncRunner` and `ProcessRunner` (success, failure, timeout).
+  - `tests/integration/test_worker_pool.py`: Heartbeat lease extensions, lease reaper cleanup, daemon execution, and graceful shutdown.
 
 ---
 
@@ -60,7 +62,8 @@
 [====================] 100% Documentation & Architecture (Phase 0)
 [====================] 100% Phase 1: Core Foundation & DAG Engine
 [====================] 100% Phase 2: Storage Layer & SQLite WAL Event Store
-[                    ]   0% Phase 3: Worker Pool, Distributed Leases & Heartbeat System
+[====================] 100% Phase 3: Worker Pool & Distributed Leases
+[                    ]   0% Phase 4: Orchestrator, Topological Scheduler & Replay Engine
 ```
 
 ---
@@ -73,10 +76,12 @@
 - **ADR-004:** Pure Functional State Machine.
 - **ADR-005:** Three-Color DFS for Instant Cycle Detection at DAG Compilation.
 - **ADR-006:** Event Registry Type Dispatching for Zero-Loss Event Hydration.
+- **ADR-007:** Background Heartbeat Task Cancellation Callback to Prevent Zombie Execution.
+- **ADR-008:** Dual Async/Process Runner Architecture for Event-Loop Non-Blocking Execution.
 
 ---
 
-### 5. Next Immediate Actions (Phase 3)
-1. Implement `WorkerSupervisorDaemon` in `src/aegisflow/workers/daemon.py` with `SIGINT`/`SIGTERM` handling.
-2. Build `AsyncRunner` and `ProcessRunner` for isolating IO-bound vs CPU-bound tasks.
-3. Build background heartbeat renewal loop and reaper monitor in `src/aegisflow/engine/lease.py`.
+### 5. Next Immediate Actions (Phase 4)
+1. Implement pure functional state machine in `src/aegisflow/engine/state_machine.py`.
+2. Implement main topological event-dispatch loop in `src/aegisflow/engine/orchestrator.py`.
+3. Implement deterministic crash recovery and event replay engine in `src/aegisflow/engine/replay.py`.
