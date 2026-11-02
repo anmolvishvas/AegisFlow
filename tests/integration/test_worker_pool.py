@@ -32,7 +32,9 @@ async def test_heartbeat_monitor_extends_lease(db_path: Path) -> None:
     await monitor.stop()
 
     conn = await storage._get_conn()
-    async with conn.execute("SELECT expires_at FROM leases WHERE task_id = ?;", ("t_heartbeat",)) as cursor:
+    async with conn.execute(
+        "SELECT expires_at FROM leases WHERE task_id = ?;", ("t_heartbeat",)
+    ) as cursor:
         row = await cursor.fetchone()
         assert row is not None
         assert row["expires_at"] > lease.expires_at.isoformat()

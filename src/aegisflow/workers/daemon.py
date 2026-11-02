@@ -108,9 +108,7 @@ class WorkerSupervisorDaemon:
 
             def on_lease_lost() -> None:
                 if current_task and not current_task.done():
-                    logger.warning(
-                        "Cancelling task execution '%s' because lease was lost", task_id
-                    )
+                    logger.warning("Cancelling task execution '%s' because lease was lost", task_id)
                     current_task.cancel()
 
             # 3. Execute with active heartbeat renewal
