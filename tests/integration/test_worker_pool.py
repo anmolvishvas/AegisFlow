@@ -47,7 +47,7 @@ async def test_lease_reaper_cleans_expired(db_path: Path) -> None:
     storage = SQLiteStorage(database_path=db_path)
     await storage.initialize()
 
-    await storage.acquire_lease("t_reap_1", "wf_1", "worker_1", ttl_seconds=0.05)
+    await storage.acquire_lease("t_reap_1", "wf_1", "worker_1", ttl_seconds=0.03)
 
     reaped_items: list[str] = []
 
@@ -55,7 +55,7 @@ async def test_lease_reaper_cleans_expired(db_path: Path) -> None:
         for item in leases:
             reaped_items.append(item.task_id)
 
-    reaper = LeaseReaper(storage, scan_interval_seconds=0.08, on_leases_reaped=on_reaped)
+    reaper = LeaseReaper(storage, scan_interval_seconds=0.03, on_leases_reaped=on_reaped)
     await reaper.start()
 
     await asyncio.sleep(0.12)

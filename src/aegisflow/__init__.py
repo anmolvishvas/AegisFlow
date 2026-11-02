@@ -21,6 +21,9 @@ from aegisflow.dsl.graph import DAG, DAGBuilder
 from aegisflow.dsl.task import TaskWrapper, task
 from aegisflow.dsl.workflow import Workflow, workflow
 from aegisflow.engine.lease import HeartbeatMonitor, LeaseReaper
+from aegisflow.engine.orchestrator import WorkflowOrchestrator
+from aegisflow.engine.replay import replay_workflow
+from aegisflow.engine.state_machine import WorkflowExecutionState
 from aegisflow.storage.base import EventStoreInterface, LeaseInfo, LeaseManagerInterface
 from aegisflow.storage.sqlite import SQLiteStorage
 from aegisflow.workers.async_runner import AsyncRunner
@@ -52,6 +55,9 @@ __all__ = [
     # Engine & Workers
     "HeartbeatMonitor",
     "LeaseReaper",
+    "WorkflowExecutionState",
+    "WorkflowOrchestrator",
+    "replay_workflow",
     "BaseRunner",
     "AsyncRunner",
     "ProcessRunner",

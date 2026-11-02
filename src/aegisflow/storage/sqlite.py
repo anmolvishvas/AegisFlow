@@ -193,6 +193,46 @@ class SQLiteStorage(EventStoreInterface, LeaseManagerInterface):
 
     async def append_event(self, event: BaseEvent) -> None:
         conn = await self._get_conn()
+        now_iso = datetime.now(UTC).isoformat()
+
+        # Ensure parent workflow row exists so foreign key is satisfied
+        wf_name = getattr(event, "workflow_name", event.workflow_id)
+        input_data = getattr(event, "input_data", {})
+        input_json = json.dumps(input_data) if input_data else None
+
+        await conn.execute(
+            """
+            INSERT OR IGNORE INTO workflows (
+                workflow_id, name, status, created_at, updated_at, input_data
+            ) VALUES (?, ?, ?, ?, ?, ?);
+            """,
+            (
+                event.workflow_id,
+                wf_name,
+                WorkflowState.PENDING.value,
+                now_iso,
+                now_iso,
+                input_json,
+            ),
+        )
+
+        # Synchronize workflow record on lifecycle transitions
+        if isinstance(event, WorkflowRunning):
+            await conn.execute(
+                "UPDATE workflows SET status = ?, updated_at = ? WHERE workflow_id = ?;",
+                (WorkflowState.RUNNING.value, now_iso, event.workflow_id),
+            )
+        elif isinstance(event, WorkflowCompleted):
+            output_json = json.dumps(event.output_data) if event.output_data is not None else None
+            await conn.execute(
+                "UPDATE workflows SET status = ?, updated_at = ?, output_data = ? WHERE workflow_id = ?;",
+                (WorkflowState.COMPLETED.value, now_iso, output_json, event.workflow_id),
+            )
+        elif isinstance(event, WorkflowFailed):
+            await conn.execute(
+                "UPDATE workflows SET status = ?, updated_at = ? WHERE workflow_id = ?;",
+                (WorkflowState.FAILED.value, now_iso, event.workflow_id),
+            )
 
         # Atomic sequence assignment within transaction
         async with conn.execute(
@@ -206,8 +246,9 @@ class SQLiteStorage(EventStoreInterface, LeaseManagerInterface):
 
         await conn.execute(
             """
-            INSERT INTO events (event_id, workflow_id, event_type, payload, timestamp, sequence_number)
-            VALUES (?, ?, ?, ?, ?, ?);
+            INSERT INTO events (
+                event_id, workflow_id, event_type, payload, timestamp, sequence_number
+            ) VALUES (?, ?, ?, ?, ?, ?);
             """,
             (
                 event.event_id,
