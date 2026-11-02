@@ -7,6 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from aegisflow.core.events import (
+    TaskCompensated,
     TaskCompleted,
     TaskFailed,
     TaskRetried,
@@ -349,7 +350,7 @@ class WorkflowOrchestrator:
                             workflow_def, state.completed_tasks
                         ):
                             try:
-                                await self.saga_coordinator.execute_compensations(
+                                comp_tasks = await self.saga_coordinator.execute_compensations(
                                     workflow_def=workflow_def,
                                     workflow_id=w_id,
                                     completed_tasks=state.completed_tasks,
@@ -357,6 +358,12 @@ class WorkflowOrchestrator:
                                     event_store=self.event_store,
                                     reason=f"Task '{task_id}' failed: {exec_result.error}",
                                 )
+                                for comp_task_id in comp_tasks:
+                                    state, _ = transition(
+                                        state,
+                                        TaskCompensated(workflow_id=w_id, task_id=comp_task_id),
+                                        workflow_def,
+                                    )
                                 state, _ = transition(
                                     state,
                                     WorkflowCompensated(workflow_id=w_id),
