@@ -238,18 +238,17 @@ class SQLiteStorage(EventStoreInterface, LeaseManagerInterface):
 
     async def get_active_workflows(self) -> list[str]:
         conn = await self._get_conn()
-        terminal_statuses = (
+        query = (
+            "SELECT workflow_id FROM workflows WHERE status NOT IN (?, ?, ?, ?);"
+        )
+        params = (
             WorkflowState.COMPLETED.value,
             WorkflowState.FAILED.value,
             WorkflowState.COMPENSATED.value,
             WorkflowState.CANCELLED.value,
         )
-        placeholders = ",".join("?" for _ in terminal_statuses)
 
-        async with conn.execute(
-            f"SELECT workflow_id FROM workflows WHERE status NOT IN ({placeholders});",
-            terminal_statuses,
-        ) as cursor:
+        async with conn.execute(query, params) as cursor:
             rows = await cursor.fetchall()
             return [row["workflow_id"] for row in rows]
 
@@ -386,9 +385,7 @@ class SQLiteStorage(EventStoreInterface, LeaseManagerInterface):
         now = datetime.now(UTC)
         now_iso = now.isoformat()
 
-        async with conn.execute(
-            "SELECT * FROM leases WHERE expires_at < ?;", (now_iso,)
-        ) as cursor:
+        async with conn.execute("SELECT * FROM leases WHERE expires_at < ?;", (now_iso,)) as cursor:
             rows = await cursor.fetchall()
 
         expired = [
