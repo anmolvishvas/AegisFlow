@@ -1,0 +1,39 @@
+# Configuration for actions/labeler@v5
+# Maps changed file paths to GitHub PR labels
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '*.md'
+
+core-engine:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/aegisflow/core/**'
+          - 'src/aegisflow/engine/**'
+
+dsl:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/aegisflow/dsl/**'
+
+storage:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/aegisflow/storage/**'
+
+workers:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/aegisflow/workers/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tests/**'
+
+ci-cd:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
