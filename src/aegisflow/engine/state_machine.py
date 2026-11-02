@@ -67,6 +67,13 @@ class WorkflowExecutionState:
         """Return task IDs that have failed."""
         return {task_id for task_id, state in self.task_states.items() if state == TaskState.FAILED}
 
+    @property
+    def compensated_tasks(self) -> set[str]:
+        """Return task IDs that have been compensated."""
+        return {
+            task_id for task_id, state in self.task_states.items() if state == TaskState.COMPENSATED
+        }
+
 
 def initial_state(
     workflow_id: str,
