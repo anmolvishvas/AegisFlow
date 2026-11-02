@@ -20,6 +20,8 @@ from aegisflow.core.states import TaskState, WorkflowState
 from aegisflow.dsl.graph import DAG, DAGBuilder
 from aegisflow.dsl.task import TaskWrapper, task
 from aegisflow.dsl.workflow import Workflow, workflow
+from aegisflow.storage.base import EventStoreInterface, LeaseInfo, LeaseManagerInterface
+from aegisflow.storage.sqlite import SQLiteStorage
 
 __version__ = "0.1.0"
 
@@ -37,6 +39,11 @@ __all__ = [
     "RetryPolicy",
     "TaskDefinition",
     "WorkflowDefinition",
+    # Storage & Leases
+    "EventStoreInterface",
+    "LeaseManagerInterface",
+    "LeaseInfo",
+    "SQLiteStorage",
     # Domain Exceptions
     "AegisFlowError",
     "WorkflowError",
