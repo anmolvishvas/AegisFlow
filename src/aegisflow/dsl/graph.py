@@ -62,7 +62,9 @@ class DAG:
             A list of task IDs in valid execution order where parents precede children.
         """
         # in-degree represents how many dependencies a task must wait for
-        in_degree: dict[str, int] = {t_id: len(self.tasks[t_id].dependencies) for t_id in self.tasks}
+        in_degree: dict[str, int] = {
+            t_id: len(self.tasks[t_id].dependencies) for t_id in self.tasks
+        }
 
         # Build adjacency list: parent -> list of dependents (children)
         dependents: dict[str, list[str]] = {t_id: [] for t_id in self.tasks}
