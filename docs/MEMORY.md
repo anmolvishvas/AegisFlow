@@ -4,8 +4,8 @@
 ---
 
 ### 1. Current Project Status
-- **Current Phase:** Phase 3 Complete (Worker Pool, Distributed Leases & Heartbeat System)
-- **Active Branch:** `feat/phase-3-worker-pool`
+- **Current Phase:** Phase 4 Complete (Orchestrator, Topological Scheduler & Replay Engine)
+- **Active Branch:** `feat/phase-4-orchestrator-replay`
 - **Active Workspace Directory:** `C:\Users\DELL\Desktop\AegisFlow\`
 - **GitHub Repository:** [github.com/anmolvishvas/AegisFlow](https://github.com/anmolvishvas/AegisFlow)
 
@@ -55,6 +55,22 @@
   - `tests/unit/test_workers.py`: Unit tests for `AsyncRunner` and `ProcessRunner` (success, failure, timeout).
   - `tests/integration/test_worker_pool.py`: Heartbeat lease extensions, lease reaper cleanup, daemon execution, and graceful shutdown.
 
+#### Phase 4: Orchestrator, Topological Scheduler & Replay Engine
+- [x] **Pure Functional State Machine (`engine/state_machine.py`):**
+  - `WorkflowExecutionState` immutable snapshot container.
+  - Pure function `transition(state, event, workflow_def) -> (new_state, ready_tasks)` with DAG topological resolution.
+- [x] **Durable Event Replay & Crash Recovery Engine (`engine/replay.py`):**
+  - `replay_workflow`: Deterministic event-log fold reconstructing exact execution state from historical WAL events.
+  - `get_resumable_tasks` & `get_runnable_tasks_after_recovery`: Identifies pending work while strictly skipping completed tasks to guarantee idempotency.
+- [x] **Topological Dispatcher Loop & Orchestrator (`engine/orchestrator.py`):**
+  - `WorkflowOrchestrator`: Coordinates end-to-end execution, task argument injection (positional or parameter-matched upstream outputs), lifecycle events, and crash resumption.
+  - `resolve_task_inputs`: Resolves root inputs and feeds parent task outputs into downstream child tasks.
+  - `compute_workflow_output`: Extracts final return values from leaf tasks.
+- [x] **Testing Suite:**
+  - `tests/unit/test_state_machine.py`: Unit tests verifying pure transitions, diamond DAG dependency resolution (A -> B & C -> D), failure state tracking, and event replay.
+  - `tests/integration/test_orchestrator.py`: End-to-end linear pipelines, concurrent diamond fan-out/fan-in pipelines, and failure propagation.
+  - `tests/integration/test_recovery.py`: Simulated mid-flight worker crash recovery, proving already completed tasks are never re-executed upon resumption.
+
 ---
 
 ### 3. Progress Summary
@@ -63,7 +79,8 @@
 [====================] 100% Phase 1: Core Foundation & DAG Engine
 [====================] 100% Phase 2: Storage Layer & SQLite WAL Event Store
 [====================] 100% Phase 3: Worker Pool & Distributed Leases
-[                    ]   0% Phase 4: Orchestrator, Topological Scheduler & Replay Engine
+[====================] 100% Phase 4: Orchestrator, Topological Scheduler & Replay Engine
+[                    ]   0% Phase 5: Resilience Features & Saga Rollbacks
 ```
 
 ---
@@ -78,10 +95,12 @@
 - **ADR-006:** Event Registry Type Dispatching for Zero-Loss Event Hydration.
 - **ADR-007:** Background Heartbeat Task Cancellation Callback to Prevent Zombie Execution.
 - **ADR-008:** Dual Async/Process Runner Architecture for Event-Loop Non-Blocking Execution.
+- **ADR-009:** Replay Idempotency via Completed Task Exclusion during Crash Recovery.
+- **ADR-010:** Dual Positional and Named Dependency Injection for Flexible Task Composition.
 
 ---
 
-### 5. Next Immediate Actions (Phase 4)
-1. Implement pure functional state machine in `src/aegisflow/engine/state_machine.py`.
-2. Implement main topological event-dispatch loop in `src/aegisflow/engine/orchestrator.py`.
-3. Implement deterministic crash recovery and event replay engine in `src/aegisflow/engine/replay.py`.
+### 5. Next Immediate Actions (Phase 5)
+1. Implement retry scheduler supporting `max_retries`, `initial_interval`, `multiplier`, and `jitter` with `TaskRetried` events.
+2. Implement saga compensation execution engine in `src/aegisflow/engine/saga.py` to dispatch rollback tasks in reverse topological order.
+3. Implement Dead-Letter Queue (DLQ) state transitions and alerting hooks.

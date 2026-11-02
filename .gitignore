@@ -1,0 +1,31 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Testing & Type checking caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build & Distribution
+build/
+dist/
+*.egg-info/
+
+# Local databases & artifacts
+*.db
+*.db-wal
+*.db-shm
+.idea/
+.vscode/

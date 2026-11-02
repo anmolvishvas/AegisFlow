@@ -88,7 +88,7 @@ module = ["aiosqlite.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-minversion = "8.0"
+minversion = "7.0"
 addopts = "-ra -q --strict-markers"
 asyncio_mode = "auto"
 testpaths = ["tests"]
