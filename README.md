@@ -264,6 +264,7 @@ mypy --strict src
 ## 📖 Detailed Engineering Documentation
 
 For deep dives into design decisions, state models, and architecture:
+- 🚀 [Local Execution Guide](RUNNING.md)
 - 📋 [Product Requirements Document (PRD)](docs/PRD.md)
 - 🏛️ [System Architecture](docs/ARCHITECTURE.md)
 - 📜 [Engineering Rules & Guidelines](docs/RULES.md)
