@@ -4,7 +4,7 @@ import pytest
 
 from aegisflow.core.exceptions import CycleDetectedError, TaskNotFoundError
 from aegisflow.core.models import TaskDefinition
-from aegisflow.dsl.graph import DAG, DAGBuilder
+from aegisflow.dsl.graph import DAG
 
 
 def _dummy_fn() -> None:

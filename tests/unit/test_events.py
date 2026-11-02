@@ -1,15 +1,11 @@
 """Unit tests for immutable event models and serialization."""
 
-from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
 from aegisflow.core.events import (
-    BaseEvent,
     TaskCompleted,
     TaskFailed,
-    TaskScheduled,
-    WorkflowCompleted,
     WorkflowInitiated,
 )
 

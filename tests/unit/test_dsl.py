@@ -1,7 +1,5 @@
 """Unit tests for task and workflow decorators."""
 
-import pytest
-
 from aegisflow.core.models import RetryPolicy
 from aegisflow.dsl.task import task
 from aegisflow.dsl.workflow import Workflow, workflow
@@ -62,6 +60,14 @@ def test_workflow_decorator_and_compilation() -> None:
     dag = wf.compile()
     order = dag.topological_sort()
     assert order == ["step_1", "step_2"]
+
+    # Also test @workflow decorator syntax
+    @workflow(tasks=[step_1, step_2])
+    def my_pipeline() -> None:
+        pass
+
+    assert isinstance(my_pipeline, Workflow)
+    assert my_pipeline.compile().topological_sort() == ["step_1", "step_2"]
 
 
 def test_retry_policy_delay_calculation() -> None:

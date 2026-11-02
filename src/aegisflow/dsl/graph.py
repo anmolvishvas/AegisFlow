@@ -34,7 +34,6 @@ class DAG:
         """
         # 0 = WHITE (unvisited), 1 = GRAY (visiting), 2 = BLACK (visited)
         visited: dict[str, int] = {t_id: 0 for t_id in self.tasks}
-        parent_map: dict[str, str | None] = {t_id: None for t_id in self.tasks}
 
         def dfs(node: str, stack: list[str]) -> None:
             visited[node] = 1  # Mark GRAY
@@ -47,7 +46,6 @@ class DAG:
                     cycle_path = stack[cycle_start_idx:] + [dep]
                     raise CycleDetectedError(cycle_path)
                 if visited[dep] == 0:
-                    parent_map[dep] = node
                     dfs(dep, stack)
 
             visited[node] = 2  # Mark BLACK
