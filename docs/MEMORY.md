@@ -4,55 +4,68 @@
 ---
 
 ### 1. Current Project Status
-- **Current Phase:** Phase 1 Initialization & Core Foundation
-- **Overall Status:** Specification & Planning Completed. Ready for codebase scaffolding.
-- **Active Workspace Directory:** `C:\Users\DELL\.gemini\antigravity\scratch\resilient-dag-engine\`
+- **Current Phase:** Phase 1 Complete (Foundation, Core Models & DAG Engine)
+- **Active Branch:** `feat/phase-1-core-dag-engine`
+- **Active Workspace Directory:** `C:\Users\DELL\Desktop\AegisFlow\`
+- **GitHub Repository:** [github.com/anmolvishvas/AegisFlow](https://github.com/anmolvishvas/AegisFlow)
 
 ---
 
-### 2. Completed Tasks
-- [x] **Product Requirements Document (`PRD.md`):** Outlined product vision, problem statement, goals, target personas, and MVP scope.
-- [x] **System Architecture Document (`ARCHITECTURE.md`):** Defined high-level architecture diagram, 5 core subsystems, technology stack, and folder structure.
-- [x] **Engineering Rulebook (`RULES.md`):** Defined strict standards for durable execution, idempotency, pure state machines, async safety, type safety (`mypy --strict`), and project boundaries.
-- [x] **UI/UX & Design Tokens (`DESIGN.md`):** Specified visual hierarchy, dark slate & semantic color tokens, typography, web components (DAG visualizer, event ticker, drawers), and Rich CLI layouts.
-- [x] **Task Breakdown & Roadmap (`TASKS.md`):** Decomposed the complete project into 7 actionable phases with clear acceptance criteria.
-- [x] **Project Memory & Journal (`MEMORY.md`):** Created project memory tracker and Architectural Decision Records (ADRs).
+### 2. Completed Milestones
+
+#### Phase 0: Project Architecture & CI/CD Bootstrap
+- [x] **PRD.md:** Product vision, problem statement, goals, target users, MVP scope.
+- [x] **ARCHITECTURE.md:** 5-layer subsystem architecture, tech stack rationale, directory layout.
+- [x] **RULES.md:** Engineering rulebook (`mypy --strict`, async safety, pure state machine).
+- [x] **DESIGN.md:** UI/UX specification, dark slate tokens, semantic statuses, Rich CLI.
+- [x] **TASKS.md:** 7-phase implementation roadmap.
+- [x] **CI/CD Workflows:** 
+  - `.github/workflows/ci.yml`: Ruff linting, Mypy strict type checking, Python 3.11-3.13 test matrix, pip-audit and bandit security scans.
+  - `.github/workflows/pr-audit.yml`: Conventional Commits verification and automatic PR path-labeler.
+  - `.github/PULL_REQUEST_TEMPLATE.md`: Standardized Senior PR template.
+
+#### Phase 1: Core Foundation & DAG Graph Engine
+- [x] **Task 1.1: Project Scaffolding & Tooling Setup:**
+  - Initialized `pyproject.toml` with Ruff, Mypy (`strict = true`), Pytest configs, and dependencies.
+  - Created PEP 561 `py.typed` marker file.
+- [x] **Task 1.2: Core Domain Models & Event Schemas:**
+  - `states.py`: `WorkflowState` and `TaskState` enums with terminal/active predicates.
+  - `exceptions.py`: Hierarchical domain exceptions rooted at `AegisFlowError`.
+  - `events.py`: Immutable, event-sourced Pydantic models for Write-Ahead Log.
+  - `models.py`: `RetryPolicy` (with exponential backoff and jitter), `TaskDefinition`, `WorkflowDefinition`.
+- [x] **Task 1.3: DAG Graph Builder & Cycle Detection:**
+  - `graph.py`: Kahn's topological sort (in-degree resolution) and 3-color DFS cycle detector (`CycleDetectedError`).
+  - `get_ready_tasks()`: Dynamic dependency satisfaction resolver.
+- [x] **Task 1.4: Workflow & Task Decorators (DSL):**
+  - `task.py`: `@task` decorator supporting sync and async callables, retries, timeouts, and `.after()` dependency chaining.
+  - `workflow.py`: `@workflow` decorator and `Workflow` compiler.
+- [x] **Unit Testing:**
+  - `tests/unit/test_events.py`: JSON roundtrip serialization and immutability tests.
+  - `tests/unit/test_graph.py`: Linear sorting, diamond fan-out/fan-in, cycle detection, and ready-task resolution.
+  - `tests/unit/test_dsl.py`: Decorator contracts, sync/async wrapping, and backoff delay math.
 
 ---
 
 ### 3. Progress Summary
 ```
-[====================] 100% Documentation & Architecture
-[                    ]   0% Core Codebase Implementation
+[====================] 100% Documentation & Architecture (Phase 0)
+[====================] 100% Phase 1: Core Foundation & DAG Engine
+[                    ]   0% Phase 2: Storage Layer & SQLite WAL Event Store
 ```
 
 ---
 
 ### 4. Key Architectural Decisions (ADR Log)
 
-#### ADR-001: Event-Sourced Write-Ahead Log (WAL) over In-Place DB Mutation
-- **Context:** Standard task queues (like Celery) update row status (`status = 'SUCCESS'`) in-place. If a crash occurs midway, partial state transitions are lost or corrupted.
-- **Decision:** All state transitions are modeled as immutable events appended to an append-only WAL. Current state is derived by folding events through a pure state machine function.
-- **Consequence:** Full auditability, trivial time-travel debugging, and guaranteed crash recovery via deterministic replay.
-
-#### ADR-002: SQLite in WAL Mode as Default Embedded Storage
-- **Context:** Temporal requires operating heavy multi-node backend services (Cassandra/Postgres/Go clusters), making it prohibitive for lightweight projects and local development.
-- **Decision:** Support SQLite in WAL mode (`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;`) out-of-the-box as the default storage engine, with zero external dependencies.
-- **Consequence:** Instant zero-setup developer experience for single-node systems, unit tests, and CLI workflows, with a modular interface for PostgreSQL in distributed deployments.
-
-#### ADR-003: Distributed Leases with Monotonic Fencing Tokens
-- **Context:** In distributed systems, a worker may pause due to a long garbage collection pause or network blip (zombie worker), causing the orchestrator to assume it is dead and reassign the task. If the zombie worker wakes up and writes its result, state is corrupted.
-- **Decision:** Every task lease issuance increments a monotonic fencing token. Storage write operations reject events carrying obsolete fencing tokens.
-- **Consequence:** Guarantees safety against split-brain execution and zombie worker races.
-
-#### ADR-004: Pure Functional State Machine
-- **Context:** Mixing I/O, timers, or network calls directly into the state transition logic makes testing and replaying nondeterministic.
-- **Decision:** The state transition logic (`state_machine.py`) is a pure function: `(State, Event) -> (NewState, [SideEffects])`.
-- **Consequence:** Enables 100% test coverage with instantaneous in-memory unit tests and reproducible replay runs.
+- **ADR-001:** Event-Sourced Write-Ahead Log (WAL) over In-Place DB Mutation.
+- **ADR-002:** SQLite in WAL Mode as Default Embedded Storage.
+- **ADR-003:** Distributed Leases with Monotonic Fencing Tokens.
+- **ADR-004:** Pure Functional State Machine.
+- **ADR-005:** Three-Color DFS for Instant Cycle Detection at DAG Compilation.
 
 ---
 
-### 5. Immediate Next Actions
-1. **Initialize Project Scaffolding:** Create `pyproject.toml` with dependencies (`msgspec`/`pydantic`, `aiosqlite`, `rich`, `typer`, `ruff`, `mypy`).
-2. **Implement Core Enums & Exceptions:** Create `states.py`, `events.py`, and `exceptions.py`.
-3. **Build the DAG Graph Compiler:** Implement node dependency tracking, cycle detection, and topological sorting in `dsl/graph.py` with unit tests.
+### 5. Next Immediate Actions (Phase 2)
+1. Implement `EventStoreInterface` and `LeaseManagerInterface` in `storage/base.py`.
+2. Implement `SQLiteEventStore` with `PRAGMA journal_mode=WAL` in `storage/sqlite.py`.
+3. Build persistence tests verifying atomic event appends and fencing token validation.
