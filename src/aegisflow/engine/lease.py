@@ -1,9 +1,9 @@
 """Distributed lease heartbeat monitoring and lease reaper services."""
 
 import asyncio
-from collections.abc import Callable
 import contextlib
 import logging
+from collections.abc import Callable
 from types import TracebackType
 from typing import Any
 

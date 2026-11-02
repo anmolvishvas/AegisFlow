@@ -57,9 +57,13 @@ class WorkerSupervisorDaemon:
         """Register OS signal handlers for graceful shutdown on SIGINT and SIGTERM."""
         if sys.platform != "win32":
             loop = asyncio.get_running_loop()
+
+            def _handle_signal() -> None:
+                asyncio.create_task(self.shutdown())
+
             for sig in (signal.SIGINT, signal.SIGTERM):
                 try:
-                    loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(self.shutdown()))
+                    loop.add_signal_handler(sig, _handle_signal)
                 except (NotImplementedError, RuntimeError):
                     pass
 

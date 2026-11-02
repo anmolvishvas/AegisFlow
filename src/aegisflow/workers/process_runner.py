@@ -1,10 +1,10 @@
 """Execution runner for synchronous, blocking, or CPU-bound tasks."""
 
 import asyncio
-from concurrent.futures import Executor, ThreadPoolExecutor
-from functools import partial
 import time
 import traceback
+from concurrent.futures import Executor, ThreadPoolExecutor
+from functools import partial
 from typing import Any
 
 from aegisflow.core.models import TaskDefinition
