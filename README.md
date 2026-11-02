@@ -102,19 +102,23 @@ pip install "aegisflow[dev]"
 import asyncio
 from aegisflow import task, workflow, WorkflowOrchestrator, SQLiteStorage
 
+
 # 1. Define tasks using @task
 @task
 def extract_data(source_url: str) -> dict:
     return {"raw": [10, 20, 30], "source": source_url}
+
 
 @task
 def transform_data(extract_data: dict) -> list[int]:
     # AegisFlow automatically matches upstream output parameter names!
     return [x * 2 for x in extract_data["raw"]]
 
+
 @task
 def calculate_summary(transform_data: list[int]) -> int:
     return sum(transform_data)
+
 
 # 2. Chain dependencies
 transform_data.after(extract_data)
@@ -122,6 +126,7 @@ calculate_summary.after(transform_data)
 
 # 3. Assemble workflow
 etl_workflow = workflow("EtlPipeline", tasks=[extract_data, transform_data, calculate_summary])
+
 
 async def main():
     # 4. Initialize storage and orchestrator
@@ -146,6 +151,7 @@ async def main():
 
     await storage.close()
 
+
 if __name__ == "__main__":
     asyncio.run(main())
 ```
@@ -161,13 +167,16 @@ For distributed transactions (e.g., e-commerce orders, payments, provisioning), 
 def authorize_payment(order_id: str, amount: float) -> str:
     return "auth_token_xyz"
 
+
 @task(compensate=lambda reserve_inventory: print(f"Releasing SKU {reserve_inventory['sku']}"))
 def reserve_inventory(order_id: str) -> dict:
     return {"sku": "ITEM-42", "reserved": True}
 
+
 @task
 def issue_invoice(authorize_payment: str) -> None:
     raise RuntimeError("Invoice printer service unavailable!")
+
 
 # If issue_invoice fails:
 # 1. reserve_inventory is compensated FIRST
