@@ -238,9 +238,7 @@ class SQLiteStorage(EventStoreInterface, LeaseManagerInterface):
 
     async def get_active_workflows(self) -> list[str]:
         conn = await self._get_conn()
-        query = (
-            "SELECT workflow_id FROM workflows WHERE status NOT IN (?, ?, ?, ?);"
-        )
+        query = "SELECT workflow_id FROM workflows WHERE status NOT IN (?, ?, ?, ?);"
         params = (
             WorkflowState.COMPLETED.value,
             WorkflowState.FAILED.value,
