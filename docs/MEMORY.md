@@ -4,8 +4,8 @@
 ---
 
 ### 1. Current Project Status
-- **Current Phase:** Phase 1 Complete (Foundation, Core Models & DAG Engine)
-- **Active Branch:** `feat/phase-1-core-dag-engine`
+- **Current Phase:** Phase 2 Complete (Storage Layer & SQLite WAL Event Store)
+- **Active Branch:** `feat/phase-2-storage-wal`
 - **Active Workspace Directory:** `C:\Users\DELL\Desktop\AegisFlow\`
 - **GitHub Repository:** [github.com/anmolvishvas/AegisFlow](https://github.com/anmolvishvas/AegisFlow)
 
@@ -20,29 +20,38 @@
 - [x] **DESIGN.md:** UI/UX specification, dark slate tokens, semantic statuses, Rich CLI.
 - [x] **TASKS.md:** 7-phase implementation roadmap.
 - [x] **CI/CD Workflows:** 
-  - `.github/workflows/ci.yml`: Ruff linting, Mypy strict type checking, Python 3.11-3.13 test matrix, pip-audit and bandit security scans.
+  - `.github/workflows/ci.yml`: Ruff linting & formatting, Mypy strict type checking, Python 3.11-3.13 test matrix, pip-audit and bandit security scans.
   - `.github/workflows/pr-audit.yml`: Conventional Commits verification and automatic PR path-labeler.
   - `.github/PULL_REQUEST_TEMPLATE.md`: Standardized Senior PR template.
 
 #### Phase 1: Core Foundation & DAG Graph Engine
-- [x] **Task 1.1: Project Scaffolding & Tooling Setup:**
-  - Initialized `pyproject.toml` with Ruff, Mypy (`strict = true`), Pytest configs, and dependencies.
-  - Created PEP 561 `py.typed` marker file.
-- [x] **Task 1.2: Core Domain Models & Event Schemas:**
-  - `states.py`: `WorkflowState` and `TaskState` enums with terminal/active predicates.
-  - `exceptions.py`: Hierarchical domain exceptions rooted at `AegisFlowError`.
-  - `events.py`: Immutable, event-sourced Pydantic models for Write-Ahead Log.
-  - `models.py`: `RetryPolicy` (with exponential backoff and jitter), `TaskDefinition`, `WorkflowDefinition`.
-- [x] **Task 1.3: DAG Graph Builder & Cycle Detection:**
-  - `graph.py`: Kahn's topological sort (in-degree resolution) and 3-color DFS cycle detector (`CycleDetectedError`).
-  - `get_ready_tasks()`: Dynamic dependency satisfaction resolver.
-- [x] **Task 1.4: Workflow & Task Decorators (DSL):**
-  - `task.py`: `@task` decorator supporting sync and async callables, retries, timeouts, and `.after()` dependency chaining.
-  - `workflow.py`: `@workflow` decorator and `Workflow` compiler.
-- [x] **Unit Testing:**
-  - `tests/unit/test_events.py`: JSON roundtrip serialization and immutability tests.
-  - `tests/unit/test_graph.py`: Linear sorting, diamond fan-out/fan-in, cycle detection, and ready-task resolution.
-  - `tests/unit/test_dsl.py`: Decorator contracts, sync/async wrapping, and backoff delay math.
+- [x] **Core Lifecycle States (`states.py`):** `WorkflowState` and `TaskState` with `StrEnum`.
+- [x] **Domain Exceptions (`exceptions.py`):** Hierarchical domain exceptions rooted at `AegisFlowError`.
+- [x] **Event-Sourced Write-Ahead Log Models (`events.py`):** Immutable Pydantic models with `datetime.UTC`.
+- [x] **Domain Models (`models.py`):** `RetryPolicy` with exponential backoff & jitter, `TaskDefinition`, `WorkflowDefinition`.
+- [x] **DAG Engine & Cycle Detection (`dsl/graph.py`):** Kahn's topological sort and 3-color DFS cycle detector.
+- [x] **Developer DSL (`dsl/task.py`, `dsl/workflow.py`):** `@task` and `@workflow` decorators with `.after()` chaining.
+- [x] **Unit Testing:** `test_events.py`, `test_graph.py`, `test_dsl.py`.
+
+#### Phase 2: Storage Layer & SQLite WAL Event Store
+- [x] **Storage Abstraction Interfaces (`storage/base.py`):**
+  - `EventStoreInterface`: `create_workflow`, `update_workflow_status`, `get_workflow_record`, `append_event`, `get_events`, `get_active_workflows`.
+  - `LeaseManagerInterface`: `acquire_lease`, `renew_lease`, `release_lease`, `reap_expired_leases`.
+  - `LeaseInfo` dataclass tracking task leases, workers, and fencing tokens.
+- [x] **SQLite WAL Storage Engine (`storage/sqlite.py`):**
+  - Embedded SQLite running in `PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;` with transaction locks and busy timeouts.
+  - Relational tables: `workflows`, append-only `events` with indexed sequence ordering, and distributed `leases`.
+  - Automatic event deserialization to exact Pydantic event classes.
+- [x] **Distributed Leases & Fencing Token Persistence:**
+  - Monotonic fencing token increments on lease takeovers.
+  - Rejection of expired or conflicting worker lease renewals via `ConcurrencyConflictError`.
+- [x] **Integration Testing (`tests/integration/test_sqlite_store.py`):**
+  - WAL pragma verification and table initialization.
+  - Workflow status transitions and duplicate prevention.
+  - Event appending and chronological roundtrip restoration.
+  - Active workflow filtering for recovery.
+  - Exclusive leasing, fencing token increments, renewal, and reaping.
+  - Concurrent async writers test under high write pressure.
 
 ---
 
@@ -50,7 +59,8 @@
 ```
 [====================] 100% Documentation & Architecture (Phase 0)
 [====================] 100% Phase 1: Core Foundation & DAG Engine
-[                    ]   0% Phase 2: Storage Layer & SQLite WAL Event Store
+[====================] 100% Phase 2: Storage Layer & SQLite WAL Event Store
+[                    ]   0% Phase 3: Worker Pool, Distributed Leases & Heartbeat System
 ```
 
 ---
@@ -62,10 +72,11 @@
 - **ADR-003:** Distributed Leases with Monotonic Fencing Tokens.
 - **ADR-004:** Pure Functional State Machine.
 - **ADR-005:** Three-Color DFS for Instant Cycle Detection at DAG Compilation.
+- **ADR-006:** Event Registry Type Dispatching for Zero-Loss Event Hydration.
 
 ---
 
-### 5. Next Immediate Actions (Phase 2)
-1. Implement `EventStoreInterface` and `LeaseManagerInterface` in `storage/base.py`.
-2. Implement `SQLiteEventStore` with `PRAGMA journal_mode=WAL` in `storage/sqlite.py`.
-3. Build persistence tests verifying atomic event appends and fencing token validation.
+### 5. Next Immediate Actions (Phase 3)
+1. Implement `WorkerSupervisorDaemon` in `src/aegisflow/workers/daemon.py` with `SIGINT`/`SIGTERM` handling.
+2. Build `AsyncRunner` and `ProcessRunner` for isolating IO-bound vs CPU-bound tasks.
+3. Build background heartbeat renewal loop and reaper monitor in `src/aegisflow/engine/lease.py`.
