@@ -25,6 +25,7 @@ from aegisflow.engine.replay import get_runnable_tasks_after_recovery, replay_wo
 from aegisflow.engine.retry import RetryScheduler
 from aegisflow.engine.saga import SagaCoordinator
 from aegisflow.engine.state_machine import WorkflowExecutionState, initial_state, transition
+from aegisflow.observability.telemetry import telemetry
 from aegisflow.storage.base import EventStoreInterface, LeaseManagerInterface
 from aegisflow.workers.base_runner import TaskExecutionResult
 from aegisflow.workers.daemon import WorkerSupervisorDaemon
@@ -176,7 +177,8 @@ class WorkflowOrchestrator:
         state, _ = transition(state, running_event, workflow_def)
 
         # 3. Enter topological execution loop
-        return await self._execute_loop(state, workflow_def, ready_tasks)
+        with telemetry.trace_workflow(w_id, workflow_def.name):
+            return await self._execute_loop(state, workflow_def, ready_tasks)
 
     async def resume(
         self,
@@ -240,15 +242,17 @@ class WorkflowOrchestrator:
             await self.event_store.append_event(scheduled_event)
             state, _ = transition(state, scheduled_event, workflow_def)
 
-            task_future = asyncio.create_task(
-                self.worker_daemon.execute_task(
-                    task_def=task_def,
-                    workflow_id=w_id,
-                    args=t_args,
-                    kwargs=t_kwargs,
-                    lease_ttl_seconds=self.lease_ttl_seconds,
-                )
-            )
+            async def _traced_execute() -> TaskExecutionResult:
+                with telemetry.trace_task(task_id, w_id):
+                    return await self.worker_daemon.execute_task(
+                        task_def=task_def,
+                        workflow_id=w_id,
+                        args=t_args,
+                        kwargs=t_kwargs,
+                        lease_ttl_seconds=self.lease_ttl_seconds,
+                    )
+
+            task_future = asyncio.create_task(_traced_execute())
             active_tasks[task_id] = task_future
 
         # Schedule initial ready tasks
