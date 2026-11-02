@@ -14,6 +14,7 @@ from aegisflow.core.events import (
     WorkflowCompensated,
     WorkflowCompensating,
     WorkflowCompleted,
+    WorkflowDeadLettered,
     WorkflowFailed,
     WorkflowInitiated,
     WorkflowRunning,
@@ -201,6 +202,10 @@ def transition(
 
     elif isinstance(event, WorkflowCompensated):
         new_status = WorkflowState.COMPENSATED
+
+    elif isinstance(event, WorkflowDeadLettered):
+        new_status = WorkflowState.DEAD_LETTER
+        new_task_errors["__dlq__"] = event.reason
 
     elif isinstance(event, TaskCompensated):
         new_task_states[event.task_id] = TaskState.COMPENSATED

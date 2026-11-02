@@ -72,6 +72,14 @@ class WorkflowCompensated(BaseEvent):
     event_type: Literal["WorkflowCompensated"] = "WorkflowCompensated"
 
 
+class WorkflowDeadLettered(BaseEvent):
+    """Recorded when a workflow exhausts retries or enters the Dead-Letter Queue."""
+
+    event_type: Literal["WorkflowDeadLettered"] = "WorkflowDeadLettered"
+    reason: str
+    error: str | None = None
+
+
 # Task Events
 class TaskScheduled(BaseEvent):
     """Recorded when a task's dependencies are satisfied and it is queued."""
@@ -153,6 +161,7 @@ EventUnion = (
     | WorkflowFailed
     | WorkflowCompensating
     | WorkflowCompensated
+    | WorkflowDeadLettered
     | TaskScheduled
     | TaskLeased
     | TaskStarted

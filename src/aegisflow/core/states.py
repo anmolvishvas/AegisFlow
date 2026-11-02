@@ -13,6 +13,7 @@ class WorkflowState(StrEnum):
     COMPENSATING = "COMPENSATING"
     COMPENSATED = "COMPENSATED"
     CANCELLED = "CANCELLED"
+    DEAD_LETTER = "DEAD_LETTER"
 
     @property
     def is_terminal(self) -> bool:
@@ -22,6 +23,7 @@ class WorkflowState(StrEnum):
             WorkflowState.FAILED,
             WorkflowState.COMPENSATED,
             WorkflowState.CANCELLED,
+            WorkflowState.DEAD_LETTER,
         )
 
 
@@ -36,6 +38,7 @@ class TaskState(StrEnum):
     RETRYING = "RETRYING"
     COMPENSATED = "COMPENSATED"
     SKIPPED = "SKIPPED"
+    DEAD_LETTER = "DEAD_LETTER"
 
     @property
     def is_terminal(self) -> bool:
@@ -45,6 +48,7 @@ class TaskState(StrEnum):
             TaskState.FAILED,
             TaskState.COMPENSATED,
             TaskState.SKIPPED,
+            TaskState.DEAD_LETTER,
         )
 
     @property

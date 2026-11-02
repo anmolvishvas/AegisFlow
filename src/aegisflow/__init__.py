@@ -5,6 +5,7 @@ from aegisflow.core.exceptions import (
     ConcurrencyConflictError,
     CycleDetectedError,
     MaxRetriesExceededError,
+    SagaCompensationError,
     StorageError,
     TaskError,
     TaskExecutionError,
@@ -20,9 +21,12 @@ from aegisflow.core.states import TaskState, WorkflowState
 from aegisflow.dsl.graph import DAG, DAGBuilder
 from aegisflow.dsl.task import TaskWrapper, task
 from aegisflow.dsl.workflow import Workflow, workflow
+from aegisflow.engine.dlq import DeadLetterManager
 from aegisflow.engine.lease import HeartbeatMonitor, LeaseReaper
 from aegisflow.engine.orchestrator import WorkflowOrchestrator
 from aegisflow.engine.replay import replay_workflow
+from aegisflow.engine.retry import RetryScheduler
+from aegisflow.engine.saga import SagaCoordinator
 from aegisflow.engine.state_machine import WorkflowExecutionState
 from aegisflow.storage.base import EventStoreInterface, LeaseInfo, LeaseManagerInterface
 from aegisflow.storage.sqlite import SQLiteStorage
@@ -58,6 +62,9 @@ __all__ = [
     "WorkflowExecutionState",
     "WorkflowOrchestrator",
     "replay_workflow",
+    "RetryScheduler",
+    "SagaCoordinator",
+    "DeadLetterManager",
     "BaseRunner",
     "AsyncRunner",
     "ProcessRunner",
@@ -69,6 +76,7 @@ __all__ = [
     "WorkflowNotFoundError",
     "WorkflowAlreadyExistsError",
     "WorkflowExecutionError",
+    "SagaCompensationError",
     "CycleDetectedError",
     "TaskError",
     "TaskNotFoundError",

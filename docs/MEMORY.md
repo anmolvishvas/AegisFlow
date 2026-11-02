@@ -4,8 +4,8 @@
 ---
 
 ### 1. Current Project Status
-- **Current Phase:** Phase 4 Complete (Orchestrator, Topological Scheduler & Replay Engine)
-- **Active Branch:** `feat/phase-4-orchestrator-replay`
+- **Current Phase:** Phase 5 Complete (Resilience Features & Saga Rollbacks)
+- **Active Branch:** `feat/phase-5-resilience-saga`
 - **Active Workspace Directory:** `C:\Users\DELL\Desktop\AegisFlow\`
 - **GitHub Repository:** [github.com/anmolvishvas/AegisFlow](https://github.com/anmolvishvas/AegisFlow)
 
@@ -71,6 +71,25 @@
   - `tests/integration/test_orchestrator.py`: End-to-end linear pipelines, concurrent diamond fan-out/fan-in pipelines, and failure propagation.
   - `tests/integration/test_recovery.py`: Simulated mid-flight worker crash recovery, proving already completed tasks are never re-executed upon resumption.
 
+#### Phase 5: Resilience Features & Saga Rollbacks
+- [x] **Retry Scheduler with Backoff & Full Jitter (`engine/retry.py`):**
+  - `RetryScheduler`: Calculates delays according to `RetryPolicy` exponential formula with random full jitter.
+  - Non-blocking asynchronous delay wait on event loop.
+  - Emits `TaskRetried` events with next scheduled attempt timestamps to the WAL.
+- [x] **Saga Compensation Coordinator (`engine/saga.py`):**
+  - `SagaCoordinator`: Analyzes DAG topology and filters completed tasks with registered compensation handlers.
+  - Dispatches compensations in strict reverse topological order (downstream actions compensated before upstream actions).
+  - Emits `WorkflowCompensating`, `TaskCompensated`, and `WorkflowCompensated` events to the WAL.
+  - Handles compensation failures cleanly by triggering `WorkflowDeadLettered` and raising `SagaCompensationError`.
+- [x] **Dead-Letter Queue (DLQ) & Alerting Hooks (`engine/dlq.py`):**
+  - `DeadLetterManager`: Collects permanently failed workflows in `DEAD_LETTER` state.
+  - Asynchronous and synchronous alert callbacks for incident notifications.
+  - Database queries to inspect dead-lettered workflows.
+- [x] **Testing Suite:**
+  - `tests/unit/test_retry.py`: Unit tests for exponential delay calculations, jitter bounds, and scheduled timestamp computations.
+  - `tests/unit/test_saga.py`: Unit tests verifying reverse topological compensation ordering and event stream recording.
+  - `tests/integration/test_resilience.py`: Integration tests for transient failure retry recovery, retry exhaustion leading to DLQ and alerts, and complete end-to-end payment saga rollback.
+
 ---
 
 ### 3. Progress Summary
@@ -80,7 +99,8 @@
 [====================] 100% Phase 2: Storage Layer & SQLite WAL Event Store
 [====================] 100% Phase 3: Worker Pool & Distributed Leases
 [====================] 100% Phase 4: Orchestrator, Topological Scheduler & Replay Engine
-[                    ]   0% Phase 5: Resilience Features & Saga Rollbacks
+[====================] 100% Phase 5: Resilience Features & Saga Rollbacks
+[                    ]   0% Phase 6: Observability, Rich CLI & Web Dashboard
 ```
 
 ---
@@ -97,10 +117,12 @@
 - **ADR-008:** Dual Async/Process Runner Architecture for Event-Loop Non-Blocking Execution.
 - **ADR-009:** Replay Idempotency via Completed Task Exclusion during Crash Recovery.
 - **ADR-010:** Dual Positional and Named Dependency Injection for Flexible Task Composition.
+- **ADR-011:** Reverse Topological Saga Compensation to Prevent Partial Transaction Orphaning.
+- **ADR-012:** Dead-Letter Queue (DLQ) State and Extensible Alert Hooks for Permanent Failures.
 
 ---
 
-### 5. Next Immediate Actions (Phase 5)
-1. Implement retry scheduler supporting `max_retries`, `initial_interval`, `multiplier`, and `jitter` with `TaskRetried` events.
-2. Implement saga compensation execution engine in `src/aegisflow/engine/saga.py` to dispatch rollback tasks in reverse topological order.
-3. Implement Dead-Letter Queue (DLQ) state transitions and alerting hooks.
+### 5. Next Immediate Actions (Phase 6)
+1. Implement OpenTelemetry distributed tracing and metrics in `src/aegisflow/observability/telemetry.py`.
+2. Implement Typer CLI in `src/aegisflow/cli/main.py` with commands (`run`, `status`, `watch`, `dlq list`, `dlq retry`).
+3. Implement lightweight real-time Web Dashboard (FastAPI + HTMX + Tailwind) with Server-Sent Events (SSE).

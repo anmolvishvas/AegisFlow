@@ -1,4 +1,4 @@
-"""Main event dispatch loop, topological task scheduling, and workflow orchestrator."""
+"""Main event dispatch loop, topological task scheduling, saga rollbacks, and recovery."""
 
 import asyncio
 import inspect
@@ -9,15 +9,21 @@ from uuid import uuid4
 from aegisflow.core.events import (
     TaskCompleted,
     TaskFailed,
+    TaskRetried,
     TaskScheduled,
+    WorkflowCompensated,
     WorkflowCompleted,
+    WorkflowDeadLettered,
     WorkflowFailed,
     WorkflowInitiated,
     WorkflowRunning,
 )
-from aegisflow.core.exceptions import WorkflowNotFoundError
+from aegisflow.core.exceptions import SagaCompensationError, WorkflowNotFoundError
 from aegisflow.core.models import TaskDefinition, WorkflowDefinition
+from aegisflow.engine.dlq import DeadLetterManager
 from aegisflow.engine.replay import get_runnable_tasks_after_recovery, replay_workflow
+from aegisflow.engine.retry import RetryScheduler
+from aegisflow.engine.saga import SagaCoordinator
 from aegisflow.engine.state_machine import WorkflowExecutionState, initial_state, transition
 from aegisflow.storage.base import EventStoreInterface, LeaseManagerInterface
 from aegisflow.workers.base_runner import TaskExecutionResult
@@ -102,7 +108,7 @@ def compute_workflow_output(
 
 
 class WorkflowOrchestrator:
-    """Orchestrates event-driven DAG execution, topological task scheduling, and recovery."""
+    """Orchestrates event-driven DAG execution, retries, saga rollbacks, and recovery."""
 
     def __init__(
         self,
@@ -110,6 +116,10 @@ class WorkflowOrchestrator:
         lease_manager: LeaseManagerInterface,
         worker_daemon: WorkerSupervisorDaemon | None = None,
         lease_ttl_seconds: float = 15.0,
+        retry_scheduler: RetryScheduler | None = None,
+        saga_coordinator: SagaCoordinator | None = None,
+        dlq_manager: DeadLetterManager | None = None,
+        enable_dlq_on_failure: bool = False,
     ) -> None:
         self.event_store = event_store
         self.lease_manager = lease_manager
@@ -118,6 +128,10 @@ class WorkflowOrchestrator:
             event_store=event_store,
         )
         self.lease_ttl_seconds = lease_ttl_seconds
+        self.retry_scheduler = retry_scheduler or RetryScheduler()
+        self.saga_coordinator = saga_coordinator or SagaCoordinator()
+        self.dlq_manager = dlq_manager or DeadLetterManager(event_store=event_store)
+        self.enable_dlq_on_failure = enable_dlq_on_failure
 
     async def run(
         self,
@@ -129,7 +143,7 @@ class WorkflowOrchestrator:
         """Execute a workflow definition from start to finish.
 
         Emits lifecycle events to the Write-Ahead Log, schedules tasks topographically
-        as their dependencies succeed, and returns the final execution state.
+        as their dependencies succeed, retries transient errors, and returns the final execution state.
 
         Args:
             workflow_def: Compiled DAG workflow definition.
@@ -138,7 +152,7 @@ class WorkflowOrchestrator:
             **kwargs: Keyword arguments for root tasks or global workflow context.
 
         Returns:
-            Terminal WorkflowExecutionState (COMPLETED or FAILED).
+            Terminal WorkflowExecutionState.
         """
         w_id = workflow_id or str(uuid4())
         input_data: dict[str, Any] = dict(kwargs)
@@ -202,11 +216,12 @@ class WorkflowOrchestrator:
         workflow_def: WorkflowDefinition,
         ready_tasks: set[str],
     ) -> WorkflowExecutionState:
-        """Internal event loop coordinating concurrent task dispatch and dependency resolution."""
+        """Internal event loop coordinating concurrent task dispatch, retries, and compensations."""
         state = initial_state
         w_id = state.workflow_id
 
         active_tasks: dict[str, asyncio.Task[TaskExecutionResult]] = {}
+        task_attempts: dict[str, int] = {}
 
         async def _dispatch_task(task_id: str) -> None:
             nonlocal state
@@ -268,27 +283,117 @@ class WorkflowOrchestrator:
                         if next_task_id not in active_tasks:
                             await _dispatch_task(next_task_id)
                 else:
-                    failed_event = TaskFailed(
-                        workflow_id=w_id,
-                        task_id=task_id,
-                        error=exec_result.error or "Task execution failed",
-                        traceback=exec_result.traceback,
-                    )
-                    state, _ = transition(state, failed_event, workflow_def)
+                    task_def = workflow_def.get_task(task_id)
+                    task_attempts[task_id] = task_attempts.get(task_id, 0) + 1
+                    attempt = task_attempts[task_id]
 
-                    wf_failed_event = WorkflowFailed(
-                        workflow_id=w_id,
-                        error=f"Task '{task_id}' failed: {exec_result.error}",
-                        traceback=exec_result.traceback,
-                    )
-                    await self.event_store.append_event(wf_failed_event)
-                    state, _ = transition(state, wf_failed_event, workflow_def)
+                    # 1. Attempt retry if eligible
+                    if self.retry_scheduler.should_retry(attempt, task_def.retry_policy):
+                        delay, next_retry_at = self.retry_scheduler.calculate_retry(
+                            attempt, task_def.retry_policy
+                        )
+                        retried_event = TaskRetried(
+                            workflow_id=w_id,
+                            task_id=task_id,
+                            attempt=attempt,
+                            next_retry_at=next_retry_at,
+                        )
+                        await self.event_store.append_event(retried_event)
+                        state, _ = transition(state, retried_event, workflow_def)
 
-                    # Cancel remaining active tasks
-                    for running_fut in active_tasks.values():
-                        running_fut.cancel()
-                    active_tasks.clear()
-                    return state
+                        async def _dispatch_retry_task(
+                            t_id: str,
+                            d: float,
+                            snapshot_state: WorkflowExecutionState,
+                        ) -> TaskExecutionResult:
+                            await self.retry_scheduler.wait_for_retry(d)
+                            t_def = workflow_def.get_task(t_id)
+                            t_args, t_kwargs = resolve_task_inputs(
+                                t_def,
+                                snapshot_state.workflow_input,
+                                snapshot_state.task_results,
+                            )
+                            return await self.worker_daemon.execute_task(
+                                task_def=t_def,
+                                workflow_id=w_id,
+                                args=t_args,
+                                kwargs=t_kwargs,
+                                lease_ttl_seconds=self.lease_ttl_seconds,
+                            )
+
+                        active_tasks[task_id] = asyncio.create_task(
+                            _dispatch_retry_task(task_id, delay, state)
+                        )
+                    else:
+                        # 2. Retries exhausted: permanent failure
+                        failed_event = TaskFailed(
+                            workflow_id=w_id,
+                            task_id=task_id,
+                            error=exec_result.error or "Task execution failed",
+                            traceback=exec_result.traceback,
+                            is_retryable=False,
+                        )
+                        state, _ = transition(state, failed_event, workflow_def)
+
+                        # Cancel remaining running tasks
+                        for running_fut in active_tasks.values():
+                            running_fut.cancel()
+                        active_tasks.clear()
+
+                        # 3. Check for saga compensation
+                        if self.saga_coordinator.has_compensations(
+                            workflow_def, state.completed_tasks
+                        ):
+                            try:
+                                await self.saga_coordinator.execute_compensations(
+                                    workflow_def=workflow_def,
+                                    workflow_id=w_id,
+                                    completed_tasks=state.completed_tasks,
+                                    task_results=state.task_results,
+                                    event_store=self.event_store,
+                                    reason=f"Task '{task_id}' failed: {exec_result.error}",
+                                )
+                                state, _ = transition(
+                                    state,
+                                    WorkflowCompensated(workflow_id=w_id),
+                                    workflow_def,
+                                )
+                            except SagaCompensationError as comp_exc:
+                                dlq_event = WorkflowDeadLettered(
+                                    workflow_id=w_id,
+                                    reason=f"Saga compensation error: {comp_exc}",
+                                    error=str(comp_exc),
+                                )
+                                state, _ = transition(state, dlq_event, workflow_def)
+                                await self.dlq_manager.notify_dead_letter(
+                                    w_id,
+                                    f"Saga compensation error: {comp_exc}",
+                                    str(comp_exc),
+                                )
+                            return state
+
+                        # 4. No compensation: check DLQ or fail
+                        if self.enable_dlq_on_failure:
+                            dlq_event = WorkflowDeadLettered(
+                                workflow_id=w_id,
+                                reason=f"Task '{task_id}' exhausted {attempt} attempts: {exec_result.error}",
+                                error=exec_result.error,
+                            )
+                            await self.event_store.append_event(dlq_event)
+                            state, _ = transition(state, dlq_event, workflow_def)
+                            await self.dlq_manager.notify_dead_letter(
+                                w_id, dlq_event.reason, exec_result.error
+                            )
+                        else:
+                            wf_failed_event = WorkflowFailed(
+                                workflow_id=w_id,
+                                error=f"Task '{task_id}' failed after {attempt} attempts: {exec_result.error}",
+                                traceback=exec_result.traceback,
+                            )
+                            await self.event_store.append_event(wf_failed_event)
+                            state, _ = transition(state, wf_failed_event, workflow_def)
+
+                        return state
 
         # 4. Check if workflow is complete
         if state.completed_tasks == set(workflow_def.tasks.keys()):

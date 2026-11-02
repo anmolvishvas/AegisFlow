@@ -35,6 +35,10 @@ class WorkflowExecutionError(WorkflowError):
     """Raised when a workflow fails execution unrecoverably."""
 
 
+class SagaCompensationError(WorkflowError):
+    """Raised when a saga compensating transaction fails execution."""
+
+
 class CycleDetectedError(WorkflowError):
     """Raised when a circular dependency is detected in the DAG."""
 

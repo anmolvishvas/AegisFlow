@@ -20,6 +20,7 @@ from aegisflow.core.events import (
     WorkflowCompensated,
     WorkflowCompensating,
     WorkflowCompleted,
+    WorkflowDeadLettered,
     WorkflowFailed,
     WorkflowInitiated,
     WorkflowRunning,
@@ -42,6 +43,7 @@ _EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
         WorkflowFailed,
         WorkflowCompensating,
         WorkflowCompensated,
+        WorkflowDeadLettered,
         TaskScheduled,
         TaskLeased,
         TaskStarted,
@@ -232,6 +234,16 @@ class SQLiteStorage(EventStoreInterface, LeaseManagerInterface):
             await conn.execute(
                 "UPDATE workflows SET status = ?, updated_at = ? WHERE workflow_id = ?;",
                 (WorkflowState.FAILED.value, now_iso, event.workflow_id),
+            )
+        elif isinstance(event, WorkflowCompensated):
+            await conn.execute(
+                "UPDATE workflows SET status = ?, updated_at = ? WHERE workflow_id = ?;",
+                (WorkflowState.COMPENSATED.value, now_iso, event.workflow_id),
+            )
+        elif isinstance(event, WorkflowDeadLettered):
+            await conn.execute(
+                "UPDATE workflows SET status = ?, updated_at = ? WHERE workflow_id = ?;",
+                (WorkflowState.DEAD_LETTER.value, now_iso, event.workflow_id),
             )
 
         # Atomic sequence assignment within transaction
