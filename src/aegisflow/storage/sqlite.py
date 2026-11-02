@@ -1,7 +1,7 @@
 """SQLite implementation of the event store and distributed lease manager in WAL mode."""
 
-from datetime import UTC, datetime, timedelta
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -370,9 +370,14 @@ class SQLiteStorage(EventStoreInterface, LeaseManagerInterface):
         fencing_token: int,
     ) -> None:
         conn = await self._get_conn()
+        now_past = datetime.fromtimestamp(0, UTC).isoformat()
         await conn.execute(
-            "DELETE FROM leases WHERE task_id = ? AND worker_id = ? AND fencing_token = ?;",
-            (task_id, worker_id, fencing_token),
+            """
+            UPDATE leases
+            SET worker_id = '', expires_at = ?
+            WHERE task_id = ? AND worker_id = ? AND fencing_token = ?;
+            """,
+            (now_past, task_id, worker_id, fencing_token),
         )
         await conn.commit()
 
